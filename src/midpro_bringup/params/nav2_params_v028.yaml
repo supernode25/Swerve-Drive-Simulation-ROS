@@ -1,0 +1,533 @@
+# nav2_params_v028.yaml — reproduces the v0.28 behaviour (before the costmap/collision-model changes).
+# Selected with:  ros2 launch midpro_bringup sim_nav.launch.py profile:=v028
+# nav2_params.yaml — midpro Nav2 (Humble) stack
+# Values marked [ROS1] are carried over from midpro 1.4 launch/cfg defaults.
+# Values marked [ASSUMED] need confirmation from hardware / field logs.
+# use_sim_time entries below are overridden by the launch argument sim_time (default false).
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: true
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    plugin_lib_names:
+      - nav2_compute_path_to_pose_action_bt_node
+      - nav2_compute_path_through_poses_action_bt_node
+      - nav2_smooth_path_action_bt_node
+      - nav2_follow_path_action_bt_node
+      - nav2_spin_action_bt_node
+      - nav2_wait_action_bt_node
+      - nav2_back_up_action_bt_node
+      - nav2_drive_on_heading_bt_node
+      - nav2_clear_costmap_service_bt_node
+      - nav2_is_stuck_condition_bt_node
+      - nav2_goal_reached_condition_bt_node
+      - nav2_goal_updated_condition_bt_node
+      - nav2_globally_updated_goal_condition_bt_node
+      - nav2_is_path_valid_condition_bt_node
+      - nav2_initial_pose_received_condition_bt_node
+      - nav2_reinitialize_global_localization_service_bt_node
+      - nav2_rate_controller_bt_node
+      - nav2_distance_controller_bt_node
+      - nav2_speed_controller_bt_node
+      - nav2_truncate_path_action_bt_node
+      - nav2_truncate_path_local_action_bt_node
+      - nav2_goal_updater_node_bt_node
+      - nav2_recovery_node_bt_node
+      - nav2_pipeline_sequence_bt_node
+      - nav2_round_robin_node_bt_node
+      - nav2_transform_available_condition_bt_node
+      - nav2_time_expired_condition_bt_node
+      - nav2_path_expiring_timer_condition
+      - nav2_distance_traveled_condition_bt_node
+      - nav2_single_trigger_bt_node
+      - nav2_goal_updated_controller_bt_node
+      - nav2_is_battery_low_condition_bt_node
+      - nav2_navigate_through_poses_action_bt_node
+      - nav2_navigate_to_pose_action_bt_node
+      - nav2_remove_passed_goals_action_bt_node
+      - nav2_planner_selector_bt_node
+      - nav2_controller_selector_bt_node
+      - nav2_goal_checker_selector_bt_node
+      - nav2_controller_cancel_bt_node
+      - nav2_path_longer_on_approach_bt_node
+      - nav2_wait_cancel_bt_node
+      - nav2_spin_cancel_bt_node
+      - nav2_back_up_cancel_bt_node
+      - nav2_drive_on_heading_cancel_bt_node
+
+bt_navigator_navigate_to_pose_rclcpp_node:
+  ros__parameters:
+    use_sim_time: true
+
+bt_navigator_navigate_through_poses_rclcpp_node:
+  ros__parameters:
+    use_sim_time: true
+
+# ---------------------------------------------------------------- controller (midpro FSM plugin)
+controller_server:
+  ros__parameters:
+    use_sim_time: true
+    controller_frequency: 20.0          # [ROS1] 20 Hz control loop
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.3
+    progress_checker_plugin: progress_checker
+    goal_checker_plugins: ["goal_checker"]
+    controller_plugins: ["FollowPath"]
+
+    progress_checker:
+      plugin: nav2_controller::SimpleProgressChecker
+      required_movement_radius: 0.10
+      movement_time_allowance: 15.0     # includes rotate-in-place at corners
+    goal_checker:
+      plugin: nav2_controller::SimpleGoalChecker
+      xy_goal_tolerance: 0.02           # [ROS1] dist_tolerance
+      yaw_goal_tolerance: 0.025         # [ROS1] yaw_tolerance
+      stateful: true
+
+    FollowPath:
+      plugin: midpro_nav2_controller::MidproFsmController
+      # --- local path builder [ROS1 loas_local_planner]
+      near_obstacle_value: 95
+      near_obstacle_distance: 0.59      # [ROS1] circumscribed radius 0.54 + circumscribed_buffer 0.05 -> NEAR band
+      path_pose_interval: 0.05
+      orient_mode: robot                # robot | path | goal
+      initial_path_mode: straight
+      side_search_max: 2.0              # [ROS1 5.0] keep local detours near the global plan
+      side_search_step: 0.05
+      detour_source: global_plan        # global_plan = follow the Smac 2D plan (default, v0.4) | planner = Smac Hybrid-A* (launch detour:=true)
+      detour_check_dist: 2.0            # m: fail FollowPath if the followed plan is hard-blocked ahead (straight-line fallback safety)
+      detour_timeout: 5.0               # planner mode: s without a detour path -> FollowPath fails -> BT recovery
+      detour_path_max_age: 3.0          # [ROS1 1.0] longer so a Hybrid-A* path is kept instead of re-steering on each replan
+      detour_goal_lookahead: 4.0        # v0.28
+      planner_divider: 2                # 20 Hz / 2 = 10 Hz planner tick [ROS1]
+      # --- tracking mode
+      tracking_mode: midpro             # midpro = ROS1 point-to-point FSM law (default) | lookahead = experimental path tracking
+      waypoint_mode: final              # final = goal only, local path follows the global plan when the straight line is blocked (v0.4) | corners = stop+rotate at corners
+      lookahead_min: 0.5
+      lookahead_gain: 0.8               # L = max(lookahead_min, lookahead_gain * v)
+      heading_gain: 1.5                 # body yaw -> path tangent
+      rotate_threshold: 1.2             # rad (~70 deg): rotate in place only above this
+      align_angle: 0.35                 # rad: leave ROTATE_IN_PLACE below this
+      holonomic_policy: goal_zone       # goal_zone = car-like in transit, holonomic within holonomic_zone of the goal | always
+      holonomic_zone: 1.5               # m: straight-in / side parking zone (body pre-aligns to the goal yaw)
+      steer_gain: 2.0                   # car-like steering: yaw rate per rad of pure-pursuit error
+      # --- waypoint sequencing (used when waypoint_mode: corners)
+      waypoint_simplify_tol: 0.10
+      waypoint_dist_tolerance: 0.05
+      waypoint_yaw_tolerance: 0.05
+      goal_orient_dist: 0.8             # [ROS1] final goal only
+      waypoint_orient_dist: 0.0         # intermediate corners: keep heading until the corner, rotate there
+      oblique_yaw_tolerance: 0.0001     # rad (ROS1: 1e-10 exact compare)
+      # --- FSM controller [ROS1 loas_controller]
+      max_linear_vel: 0.6               # [ROS1 0.2] raised to 0.6; 1.0 was unstable
+      min_linear_vel: 0.02
+      max_angular_vel: 0.8
+      min_angular_vel: 0.05
+      acceleration_limit: 0.4           # FOLLOW_PATH/FINAL_APPROACH ramp [ROS1 0.1]
+      angular_acc_limit: 1.2
+      approach_dist: 0.8                # slow-down zone before a waypoint [ROS1 0.5 at 0.2 m/s]
+      turn_angular_vel: 0.8
+      dist_tolerance: 0.02
+      yaw_tolerance: 0.025
+      final_approach_threshold: 5
+      k_prop: 1.2                       # [ROS1 0.8] raised: with the 0.4 m reference the effective loop gain dropped and the robot drifted off curves
+      linear_y_lpf_alpha: 0.3
+      linear_x_rate_limit: 0.015        # used only if linear_acc_limit <= 0
+      max_linear_y: 0.4
+      min_turn_speed_ratio: 0.67        # ackermann steering never cuts linear.x below 0.67 x speed (0.4 of 0.6)
+      heading_lookahead: 0.4            # m; steering reference point ahead on the path (0 = ROS1 next point, 5 cm)
+      curvature_feedforward: false      # true: omega = k_prop*e + v*kappa -> no steady-state heading error on curves (then k_prop 0.8~1.0)
+      # --- bay exit / goal-zone policy
+      no_rotate_in_near: true           # plan STARTS inside NEAR(95) (bay): hold yaw and slide out; driving INTO NEAR (aisle) keeps steering
+      escape_speed: 0.25                # m/s while escaping (ROS1 crawled 0.1 when backing)
+      holonomic_only_when_needed: true  # goal-yaw hold on the last 0.8 m only near obstacles or for side parking
+      goal_obstacle_check_radius: 1.0   # m around the goal scanned for NEAR cells
+      goal_side_angle: 0.52             # rad (30 deg): goal yaw vs approach direction above this = side parking
+      side_parking_holonomic: false     # false: open space -> arrive aligned, rotate at the goal (FINAL_ROTATE); holonomic only next to obstacles
+      # --- detour recovery / deviation
+      detour_clear_ticks: 5             # planner ticks (10 Hz) the direct line must stay clear before leaving detour
+      max_path_deviation: 1.5           # m off the global plan -> FollowPath fails -> BT replans from here
+      # --- collision model (v0.29)
+      collision_model: circle           # v0.28
+      footprint_padding: 0.05           # m on every side; 0.08 with AMCL-grade localisation (localisation error eats the margin)
+      tight_passage_speed: 0.3          # m/s where the footprint clearance ahead is < 2 x padding
+      hybrid_fallback: false            # v0.28
+      # --- consistency / commitment (v0.30)
+      align_gate_dist: 2.0              # m: look this far for a tight stretch -> align while there is still room (v0.32: 1.0 was too late)
+      align_move_speed: 0.2             # m/s: steer to the path tangent on the move when there is no room to rotate in place
+      # --- trust the plan (v0.33): gate and trajectory filter stay out while the robot tracks its path
+      track_lat_tol: 0.08               # m lateral error to the local path
+      track_yaw_tol: 0.15               # rad heading error to the path tangent at the robot
+      escape_latch: false               # v0.28: escape (hold yaw, slide) whenever inside NEAR
+      plan_hysteresis: true             # v0.36: on in every profile (left/right replan flip-flop around an obstacle)
+      rotation_check: true              # footprint model only: no in-place rotation where the body does not fit
+      align_gate_enabled: true          # footprint model only: align before a tight stretch
+      transit_holonomic: false          # v0.41: avoid/transit aligned on the path; holonomic only for escape, goal zone, last resort (GUI toggle)
+      plan_switching: false             # v0.41: keep the current plan unless blocked/left; switch to shorter plans only when on (GUI toggle)
+      straight_clearance: 0.15          # v0.42 (footprint model): prefer a straight line only with 15 cm around the body;
+                                        # closer lines are passable but the centred global plan is followed instead
+      min_angular_in_place_only: true   # v0.46: min_angular_vel only for ROTATE_IN_PLACE / FINAL_ROTATE (was: every state -> +-0.05 steering limit cycle)
+      steer_deadband: 0.01              # rad/s: driving corrections below this are zeroed (MobED: re-check with the real steering response)
+      goal_same_tol: 0.6                # v0.48: plan ends within this = same goal (planner tolerance 0.5 moves the end)
+      plan_switch_force_ratio: 0.5      # v0.48: same goal, new plan <= 50 % of current -> take it even with switching off
+      block_persist_time: 3.0           # v0.49: plan must stay blocked this long before going around it (pedestrians pass, boxes stay)
+      yield_stop_margin: 1.2            # v0.55: m, stop this far before a blockage (room to turn away if it is fixed)
+      block_check_dist: 4.5             # v0.55: m of the followed plan checked for blockages (decide early, inside the local costmap)
+      block_classify_time: 1.0          # v0.55: s; a blockage whose nearest obstacle cell does not move is static -> go around at once
+      block_move_tol: 0.20              # v0.55: m the nearest obstacle cell may move and still count as static
+      back_off_speed: 0.12              # v0.57: m/s, slide away from the nearest obstacle to make room before aligning
+      shortcut_dist: 3.5                # v0.61: m, string-pull the followed plan (straight driving in corridors; footprint model only)
+      oblique_lookahead: 0.10           # v0.69: holonomic paths aim 10 cm ahead (ROS1 path[1]); no corner cutting on side/front paths
+      orthogonal_avoid: false          # v0.68: obstacle close ahead + goal beyond -> side shift (heading held), stop, straight (GUI toggle) (v028 baseline: off)
+      side_front_enabled: false        # v0.72: midpro side_front/front_side in transit (yaw held, segment by segment; GUI toggle) (v028 baseline: via transit_holonomic)
+      side_trigger_dist: 2.5            # v0.79: side/front only for a blockage within this distance; farther -> global plan
+      goal_staging: false              # v0.73: if turning at the goal would hit something, stop on the plan where it fits, turn, slide in (GUI toggle)
+      path_conditioner_enabled: true    # v0.81: reshape each plan for the long body (start shift, corridor straightening, off-plan goal staging; footprint model only; GUI toggle)
+      conditioner_horizon: 25.0         # m of the plan conditioned per setPlan
+      tight_clearance: 0.06             # v0.75: less than this around the body = tight passage (slow down, align first)
+      trust_guard: true                 # v0.75: the guard's exact forward distance overrides a costmap-raster 'blocked straight ahead'
+      tight_track_enabled: true         # v0.76: in tight passages keep the heading along the corridor and crab the lateral error out (no body swing)
+      tight_track_lat_gain: 0.8         # vy = gain * lateral error
+      tight_track_lat_max: 0.08         # m/s
+      tight_track_yaw_gain: 0.6         # wz = gain * heading error to the path tangent
+      tight_track_yaw_max: 0.15         # rad/s
+      stage_eval_dist: 4.0              # m from the goal where the decision is made
+      stage_min_dist: 0.6               # m: staging pose search range back along the plan
+      stage_max_dist: 3.0
+      orth_trigger_dist: 1.2            # m: obstacle this close ahead triggers it (2.5 m when the robot is stopped)
+      orth_max_shift: 1.6               # m: largest sideways shift considered
+      orth_speed: 0.25                  # m/s during the manoeuvre
+      prefer_comfortable_curve: false    # v0.43: straight too close -> curve if the global plan has comfortable clearance, else straight (narrow corridor) (v028 baseline: off)
+      comfort_check_dist: 3.0           # m of the global plan checked for that clearance
+      align_tolerance: 0.12             # rad (~7 deg)
+      plan_switch_gain: 0.15            # same goal: keep the current plan unless the new one is 15 % shorter
+      plan_keep_check_dist: 4.5         # m of the current plan that must stay footprint-feasible to keep it
+      plan_switch_small_gain: 0.05      # switch to a plan >= 5 % shorter when it persists ...
+      plan_switch_confirm: 2            # ... over this many consecutive replans (flip-flops alternate, real shortcuts persist)
+      # --- trajectory safety filter (v0.31): simulate the final command forward with the footprint
+      traj_check_enabled: false         # v0.28
+      traj_check_time: 0.7              # v0.61: s (1.0 assumed the same turn rate for too long -> false slow-downs in tight aisles)
+      # --- planned speed profile (per plan: curvature, proximity, goal braking + accel passes)
+      speed_profile_enabled: true
+      lateral_acc_limit: 0.4            # m/s^2: v <= sqrt(a_lat / kappa)
+      profile_curv_window: 0.3          # m
+      profile_min_speed: 0.15           # m/s floor of the profile (except at the goal)
+      # --- speed governor (reactive part: NEAR cells ahead, goal braking; curvature/inflation owned by the profile)
+      linear_acc_limit: 0.4             # m/s^2
+      linear_dec_limit: 0.4             # m/s^2, v <= sqrt(2 * dec * dist_to_waypoint)
+      speed_lookahead_dist: 1.2         # m of path ahead checked for obstacle cost (>= 2 x v)
+      near_obstacle_speed: 0.4          # NEAR(95) cell ahead
+      inflation_speed: 0.5              # inflated cell ahead with cost >= inflation_cost_threshold
+      inflation_cost_threshold: 80      # 0..100 scale (~0.65 m from an obstacle with inflation 0.9 / scaling 2.0)
+      curve_lookahead: 1.0              # m: curvature measured as path direction change over this distance
+      curve_speed: 0.4                  # heading change ahead > curve_angle
+      governor_floor: 0.4               # situational caps never go below this (stop zone and goal braking still do)
+      curve_angle: 0.17
+
+# ---------------------------------------------------------------- costmaps
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      use_sim_time: true
+      update_frequency: 10.0            # [ROS1] 5 Hz; raised for 1 m/s driving
+      publish_frequency: 2.0            # display only; RViz load
+      global_frame: odom
+      robot_base_frame: base_link
+      rolling_window: true
+      width: 10                         # [ROS1] window_size 10 m
+      height: 10
+      resolution: 0.05                  # [ROS1]
+      footprint: "[[0.42, 0.25], [0.42, -0.25], [-0.48, -0.25], [-0.48, 0.25]]"   # [ROS1]
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      static_layer:
+        plugin: nav2_costmap_2d::StaticLayer
+        map_subscribe_transient_local: true
+      obstacle_layer:
+        plugin: nav2_costmap_2d::ObstacleLayer
+        enabled: true
+        footprint_clearing_enabled: true   # [ROS1] points inside footprint dropped
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: LaserScan
+          inf_is_valid: true              # no-return rays clear up to raytrace range (70 m aisle: axis rays are 'inf')
+          raytrace_max_range: 12.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 10.0
+          obstacle_min_range: 0.0
+          observation_persistence: 2.0     # [ROS1] decay_time 2 s
+      inflation_layer:
+        plugin: nav2_costmap_2d::InflationLayer
+        # ROS1 had 3 discrete bands: 100 lethal / 99 inscribed / 95 "NEAR" (circumscribed 0.54 + 0.05 = 0.59 m).
+        # The controller rebuilds the 95 band from near_obstacle_distance, so inflation_radius must
+        # extend beyond 0.59 m and the decay must still be clearly > 0 there.
+        inflation_radius: 0.90
+        cost_scaling_factor: 2.0
+      always_send_full_costmap: true
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: true
+      update_frequency: 2.0             # re-mark quickly after the BT clears the layer before each replan
+      publish_frequency: 0.5            # 1.8 M cells: keep RViz traffic low
+      global_frame: map
+      robot_base_frame: base_link
+      resolution: 0.05
+      track_unknown_space: true
+      # Circular footprint = ROS1 NEAR band (circumscribed 0.54 + 0.05). Smac 2D treats the inscribed
+      # band as lethal, so the global path centre line stays >= 0.59 m from obstacles -- the same
+      # constraint the midpro planner applies (cost >= 95 blocks). Local/detour costmaps keep the polygon.
+      robot_radius: 0.45                # v0.28
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]   # v0.28
+      static_layer:
+        plugin: nav2_costmap_2d::StaticLayer
+        map_subscribe_transient_local: true
+      obstacle_layer:
+        plugin: nav2_costmap_2d::ObstacleLayer
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: LaserScan
+          inf_is_valid: true              # no-return rays clear up to raytrace range (70 m aisle: axis rays are 'inf')
+          raytrace_max_range: 11.5          # v0.48: equal to obstacle_max_range -> no mark/clear flicker at the range edge
+          obstacle_max_range: 11.5
+          observation_persistence: 1.0    # keep only recent scans in the buffer
+      inflation_layer:
+        plugin: nav2_costmap_2d::InflationLayer
+        inflation_radius: 0.70              # v0.37 (global only): cost no longer blankets whole gaps
+        cost_scaling_factor: 4.0            # faster decay -> gap centres cheap, wide aisles still prefer the centre
+      always_send_full_costmap: false  # publish updates; full map only on change
+
+# ---------------------------------------------------------------- planner #1 (global)
+planner_server:
+  ros__parameters:
+    use_sim_time: true
+    expected_planner_frequency: 1.0
+    planner_plugins: ["GridBased", "StraightLine"]
+    GridBased:
+      plugin: nav2_smac_planner/SmacPlanner2D
+      tolerance: 0.5                    # accept the nearest free cell if the exact goal is blocked [ROS1 default_tolerance]
+      downsample_costmap: false         # 0.10 m grid closed narrow gaps; keep 0.05 m
+      downsampling_factor: 1
+      allow_unknown: true
+      max_iterations: 1000000
+      max_on_approach_iterations: 1000
+      max_planning_time: 8.0            # 100 m map, 1.8 M cells: 2 s was not enough for far goals
+      cost_travel_multiplier: 2.5      # v0.37: 6.0 made a 1.2 m gap cost like ~12 m of free space -> long detours first
+      use_final_approach_orientation: false
+      smoother:
+        max_iterations: 1000
+        w_smooth: 0.3
+        w_data: 0.2
+        tolerance: 1.0e-10
+    StraightLine:                      # fallback when GridBased fails: ROS1 midpro "always hand a target to the FSM"
+      plugin: midpro_nav2_controller::MidproStraightPlanner
+      interval: 0.05
+
+# ---------------------------------------------------------------- planner #2 (detour, replaces eband)
+# Launched as a second planner_server under namespace /detour. Its own rolling-window costmap
+# (nav2 hardcodes the name "global_costmap" inside planner_server, hence the namespace).
+detour:
+  planner_server:
+    ros__parameters:
+      use_sim_time: true
+      expected_planner_frequency: 2.0
+      planner_plugins: ["DetourPlanner"]
+      DetourPlanner:
+        plugin: nav2_smac_planner/SmacPlannerHybrid
+        tolerance: 0.15
+        downsample_costmap: false
+        downsampling_factor: 1
+        allow_unknown: true
+        max_iterations: 1000000
+        max_on_approach_iterations: 1000
+        max_planning_time: 0.5
+        motion_model_for_search: REEDS_SHEPP    # swerve can reverse; use DUBIN to forbid reversing
+        angle_quantization_bins: 32
+        analytic_expansion_ratio: 3.5
+        analytic_expansion_max_length: 2.0
+        minimum_turning_radius: 0.40            # [ASSUMED] ackermann-mode steering limit of the swerve base
+        reverse_penalty: 2.0
+        change_penalty: 0.0
+        non_straight_penalty: 1.2
+        cost_penalty: 2.0
+        retrospective_penalty: 0.015
+        lookup_table_size: 8.0
+        cache_obstacle_heuristic: false
+        smooth_path: true
+        smoother:
+          max_iterations: 1000
+          w_smooth: 0.3
+          w_data: 0.2
+          tolerance: 1.0e-10
+  global_costmap:
+    global_costmap:
+      ros__parameters:
+        use_sim_time: true
+        update_frequency: 5.0
+        publish_frequency: 2.0
+        global_frame: map                       # plan in map so the path can be handed back in map frame
+        robot_base_frame: base_link
+        rolling_window: true
+        width: 10
+        height: 10
+        resolution: 0.05
+        track_unknown_space: false
+        footprint: "[[0.42, 0.25], [0.42, -0.25], [-0.48, -0.25], [-0.48, 0.25]]"
+        plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+        static_layer:
+          plugin: nav2_costmap_2d::StaticLayer
+          map_subscribe_transient_local: true
+        obstacle_layer:
+          plugin: nav2_costmap_2d::ObstacleLayer
+          enabled: true
+          observation_sources: scan
+          scan:
+            topic: /scan
+            max_obstacle_height: 2.0
+            clearing: true
+            marking: true
+            data_type: LaserScan
+            inf_is_valid: true              # no-return rays clear up to raytrace range (70 m aisle: axis rays are 'inf')
+            raytrace_max_range: 12.0
+            obstacle_max_range: 10.0
+            observation_persistence: 2.0
+        inflation_layer:
+          plugin: nav2_costmap_2d::InflationLayer
+          inflation_radius: 0.90
+          cost_scaling_factor: 2.0
+        always_send_full_costmap: true
+
+# ---------------------------------------------------------------- recoveries
+behavior_server:
+  ros__parameters:
+    use_sim_time: true
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "wait"]
+    spin:
+      plugin: nav2_behaviors/Spin
+    backup:
+      plugin: nav2_behaviors/BackUp
+    drive_on_heading:
+      plugin: nav2_behaviors/DriveOnHeading
+    wait:
+      plugin: nav2_behaviors/Wait
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_tolerance: 0.1
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 0.8
+    min_rotational_vel: 0.05
+    rotational_acc_lim: 1.0
+
+
+# ---------------------------------------------------------------- reactive safety (midpro obstacle_detector chain)
+# ROS1: obstacle_detector.py zones -> obstacle_filter.py (decel to 0.1 m/s over 1 s, stop toward the obstacle)
+# Nav2: collision_monitor sits between the controller and velocity_smoother; the smoother then ramps the
+# slowdown/stop at max_decel, which reproduces the ~1 s deceleration of obstacle_filter.py.
+collision_monitor:
+  ros__parameters:
+    use_sim_time: false
+    base_frame_id: base_link
+    odom_frame_id: odom
+    cmd_vel_in_topic: cmd_vel_nav
+    cmd_vel_out_topic: cmd_vel_cm
+    transform_tolerance: 0.3
+    source_timeout: 2.0
+    base_shift_correction: true
+    stop_pub_timeout: 2.0
+    polygons: ["PolygonStop", "FootprintApproach"]   # CircleSlow removed: slowdown is done once, in the controller governor (floor 0.1)
+    PolygonStop:                       # [ROS1 out_rec 0.52 / -0.50 x +-0.35] shrunk: approach handles anticipation
+      type: polygon
+      points: [0.44, 0.27, 0.44, -0.27, -0.50, -0.27, -0.50, 0.27]   # v0.28
+      action_type: stop
+      max_points: 3
+      visualize: true
+      polygon_pub_topic: polygon_stop
+      enabled: true
+    CircleSlow:                        # [ROS1] decel_radius 1.0 m -> deceleration_min_vel 0.1 of 0.6
+      type: circle
+      radius: 1.0
+      action_type: slowdown
+      max_points: 3
+      slowdown_ratio: 0.17
+      visualize: true
+      polygon_pub_topic: polygon_slowdown
+      enabled: true
+    FootprintApproach:                 # time-to-collision braking along the commanded motion (no ROS1 equivalent)
+      type: polygon
+      action_type: approach
+      footprint_topic: /local_costmap/published_footprint
+      time_before_collision: 1.0        # v0.28
+      simulation_time_step: 0.1
+      max_points: 5
+      visualize: false
+      enabled: true
+    observation_sources: ["scan"]
+    scan:
+      type: scan
+      topic: /scan
+      enabled: true
+
+# ---------------------------------------------------------------- output smoothing (replaces in-controller filters long term)
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: true
+    smoothing_frequency: 20.0
+    scale_velocities: false
+    feedback: OPEN_LOOP
+    max_velocity: [0.6, 0.2, 0.8]
+    min_velocity: [-0.6, -0.2, -0.8]
+    max_accel: [0.5, 0.4, 1.2]         # slightly above the controller's own limits (0.4 / 1.2)
+    max_decel: [-0.5, -0.4, -1.2]
+    odom_topic: odom
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0
+
+# ---------------------------------------------------------------- localization (map mode)
+map_server:
+  ros__parameters:
+    use_sim_time: true
+    yaml_filename: ""                   # set from launch
+
+amcl:
+  ros__parameters:
+    use_sim_time: true
+    alpha1: 0.2
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    alpha5: 0.2
+    base_frame_id: base_link
+    odom_frame_id: odom
+    global_frame_id: map
+    scan_topic: /scan
+    robot_model_type: nav2_amcl::OmniMotionModel    # holonomic base
+    laser_model_type: likelihood_field
+    max_beams: 60
+    max_particles: 2000
+    min_particles: 500
+    update_min_a: 0.1
+    update_min_d: 0.1
+    resample_interval: 1
+    transform_tolerance: 0.5
+    set_initial_pose: true
+    initial_pose: {x: 1.5, y: 1.5, z: 0.0, yaw: 0.0}
+    tf_broadcast: true

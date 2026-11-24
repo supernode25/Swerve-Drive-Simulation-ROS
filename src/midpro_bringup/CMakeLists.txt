@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.8)
+project(midpro_bringup)
+find_package(ament_cmake REQUIRED)
+install(DIRECTORY launch params maps rviz behavior_trees scripts scenarios DESTINATION share/${PROJECT_NAME})
+ament_package()

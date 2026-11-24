@@ -1,0 +1,55 @@
+<!--
+  midpro_nav_to_pose_detour.xml  (v0.11)
+  Replanning only when the path becomes invalid (obstacle on it) or the goal changes, instead of every
+  second: a grid planner returns slightly different equal-cost paths on each call, and the midpro FSM
+  steers on path[1], so unconditional 1 Hz replanning produced steering jitter.
+  FollowPath = midpro FSM controller plugin. Recovery: clear costmaps -> wait -> backup -> spin.
+-->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <RecoveryNode number_of_retries="6" name="NavigateRecovery">
+      <PipelineSequence name="NavigateWithReplanning">
+        <RateController hz="2.0">
+          <Fallback name="PlanIfNeeded">
+            <ReactiveSequence name="KeepCurrentPath">
+              <Inverter><GlobalUpdatedGoal/></Inverter>
+              <IsPathValid path="{path}"/>
+              <!-- keep the path for at most 10 s: a plan the robot has left is still "valid", so without
+                   this the stack would follow a stale path after a local detour -->
+              <Inverter><PathExpiringTimer seconds="10" path="{path}"/></Inverter>
+            </ReactiveSequence>
+            <RecoveryNode number_of_retries="1" name="ComputePathToPose">
+              <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+              <ReactiveFallback name="ComputePathToPoseRecoveryFallback">
+                <GoalUpdated/>
+                <ClearEntireCostmap name="ClearGlobalCostmap-Context" service_name="global_costmap/clear_entirely_global_costmap"/>
+              </ReactiveFallback>
+            </RecoveryNode>
+            <!-- ROS1 midpro behaviour: if no grid path exists, hand the FSM a straight line and let it resolve obstacles -->
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="StraightLine"/>
+          </Fallback>
+        </RateController>
+        <RecoveryNode number_of_retries="1" name="FollowPath">
+          <FollowPath path="{path}" controller_id="FollowPath"/>
+          <ReactiveFallback name="FollowPathRecoveryFallback">
+            <GoalUpdated/>
+            <ClearEntireCostmap name="ClearLocalCostmap-Context" service_name="local_costmap/clear_entirely_local_costmap"/>
+          </ReactiveFallback>
+        </RecoveryNode>
+      </PipelineSequence>
+      <ReactiveFallback name="RecoveryFallback">
+        <GoalUpdated/>
+        <RoundRobin name="RecoveryActions">
+          <Sequence name="ClearingActions">
+            <ClearEntireCostmap name="ClearLocalCostmap-Subtree" service_name="local_costmap/clear_entirely_local_costmap"/>
+            <ClearEntireCostmap name="ClearGlobalCostmap-Subtree" service_name="global_costmap/clear_entirely_global_costmap"/>
+            <ClearEntireCostmap name="ClearDetourCostmap-Subtree" service_name="/detour/global_costmap/clear_entirely_global_costmap"/>
+          </Sequence>
+          <Wait wait_duration="3"/>
+          <BackUp backup_dist="0.30" backup_speed="0.05"/>
+          <Spin spin_dist="1.57"/>
+        </RoundRobin>
+      </ReactiveFallback>
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

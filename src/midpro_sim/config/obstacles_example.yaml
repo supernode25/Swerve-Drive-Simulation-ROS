@@ -1,0 +1,6 @@
+# Static obstacles injected into the simulated world (map frame, metres).
+# Script test scenarios here: single obstacle, partial block, full block.
+obstacles:
+  - {type: circle, x: 6.0, y: 2.0, r: 0.25}                 # on the straight line -> side_front / front_side
+  - {type: box, x: 12.0, y: 3.2, w: 0.6, h: 1.6, yaw: 0.0}   # partial corridor block
+  # - {type: box, x: 16.0, y: 2.5, w: 0.4, h: 4.6, yaw: 0.0} # full block -> detour (Hybrid-A*) / recovery

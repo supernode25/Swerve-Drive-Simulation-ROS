@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>midpro_dash</name>
+  <version>0.1.0</version>
+  <description>PyQt5/pyqtgraph live dashboard: speed, acceleration, steering and planned speed profile for the midpro Nav2 stack</description>
+  <maintainer email="dev@example.com">midpro</maintainer>
+  <license>Proprietary</license>
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>python3-pyqt5</depend>
+  <depend>python3-pyqtgraph</depend>
+  <depend>nav2_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>map_msgs</depend>
+  <depend>python3-numpy</depend>
+  <depend>action_msgs</depend>
+  <depend>python3-yaml</depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

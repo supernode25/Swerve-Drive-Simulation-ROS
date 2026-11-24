@@ -1,0 +1,195 @@
+<?xml version="1.0"?>
+<!--
+  swerve_platform.urdf.xacro  (v2)
+  Generic four-wheel independent-steering platform built from primitives:
+    lower chassis block -> four swing arms -> steer knuckles -> 12" wheels with hub covers,
+    upper body shell, front sensor pod, rear e-stop. Dimensions follow published spec numbers
+    (60 x 67 x 33 cm overall, 12-inch tyres, wheelbase 0.45-0.65 m). No product styling is copied;
+    pass mesh_file:=<path> to show a CAD body you are licensed to use instead of the box body.
+
+  base_link is at axle height; base_footprint is on the ground (child of base_link).
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="swerve_platform">
+  <xacro:arg name="body_length"  default="0.67"/>
+  <xacro:arg name="body_width"   default="0.60"/>
+  <xacro:arg name="body_height"  default="0.33"/>
+  <xacro:arg name="wheel_dia"    default="0.3048"/>
+  <xacro:arg name="wheel_width"  default="0.075"/>
+  <xacro:arg name="wheelbase"    default="0.55"/>
+  <xacro:arg name="mesh_file"    default=""/>
+  <xacro:arg name="mesh_scale"   default="1.0"/>
+  <xacro:arg name="laser_x"      default="0.25"/>
+  <xacro:arg name="laser_z"      default="0.36"/>
+
+  <xacro:property name="L"    value="$(arg body_length)"/>
+  <xacro:property name="W"    value="$(arg body_width)"/>
+  <xacro:property name="H"    value="$(arg body_height)"/>
+  <xacro:property name="wd"   value="$(arg wheel_dia)"/>
+  <xacro:property name="ww"   value="$(arg wheel_width)"/>
+  <xacro:property name="wb"   value="$(arg wheelbase)"/>
+  <xacro:property name="mesh" value="$(arg mesh_file)"/>
+  <xacro:property name="ms"   value="$(arg mesh_scale)"/>
+  <xacro:property name="wr"   value="${wd/2}"/>
+
+  <!-- layout (all y positions measured from the centre line) -->
+  <xacro:property name="track"     value="${W - ww}"/>            <!-- wheel centre to wheel centre -->
+  <xacro:property name="arm_gap"   value="0.015"/>                <!-- tyre to knuckle clearance -->
+  <xacro:property name="knuckle_r" value="0.045"/>
+  <xacro:property name="knuckle_y" value="${track/2 - ww/2 - arm_gap - knuckle_r}"/>
+  <xacro:property name="body_w"    value="${track - ww - 2*arm_gap}"/>      <!-- shell spans up to the tyres' inner faces -->
+  <xacro:property name="chassis_w" value="${2*knuckle_y - 2*knuckle_r - 0.02}"/>
+  <xacro:property name="chassis_l" value="${wb + 0.16}"/>
+  <xacro:property name="chassis_h" value="0.10"/>
+  <xacro:property name="chassis_z" value="0.0"/>                  <!-- centred on the axle line -->
+  <xacro:property name="shell_h"   value="${max(0.10, H - wr - chassis_h/2 - 0.01)}"/>
+  <xacro:property name="shell_z"   value="${chassis_h/2 + shell_h/2}"/>
+  <xacro:property name="arm_len"   value="${knuckle_y - chassis_w/2}"/>
+  <xacro:property name="arm_sec"   value="0.055"/>
+
+  <material name="shell"><color rgba="0.74 0.75 0.77 1.0"/></material>
+  <material name="chassis"><color rgba="0.20 0.21 0.23 1.0"/></material>
+  <material name="tyre"><color rgba="0.10 0.10 0.10 1.0"/></material>
+  <material name="hub"><color rgba="0.58 0.59 0.62 1.0"/></material>
+  <material name="accent"><color rgba="0.12 0.31 0.55 1.0"/></material>
+  <material name="estop"><color rgba="0.80 0.12 0.10 1.0"/></material>
+
+  <!-- ================================================================ base -->
+  <link name="base_footprint"/>
+  <link name="base_link">
+    <!-- lower chassis block (houses drive electronics, carries the arms) -->
+    <visual>
+      <origin xyz="0 0 ${chassis_z}" rpy="0 0 0"/>
+      <geometry><box size="${chassis_l} ${chassis_w} ${chassis_h}"/></geometry>
+      <material name="chassis"/>
+    </visual>
+    <xacro:if value="${mesh != ''}">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry><mesh filename="file://${mesh}" scale="${ms} ${ms} ${ms}"/></geometry>
+        <material name="shell"/>
+      </visual>
+    </xacro:if>
+    <xacro:unless value="${mesh != ''}">
+      <!-- upper body shell -->
+      <visual>
+        <origin xyz="0 0 ${shell_z}" rpy="0 0 0"/>
+        <geometry><box size="${L} ${body_w} ${shell_h}"/></geometry>
+        <material name="shell"/>
+      </visual>
+      <!-- top deck lip -->
+      <visual>
+        <origin xyz="0 0 ${shell_z + shell_h/2 + 0.004}" rpy="0 0 0"/>
+        <geometry><box size="${L - 0.04} ${body_w - 0.04} 0.008"/></geometry>
+        <material name="chassis"/>
+      </visual>
+      <!-- front sensor pod -->
+      <visual>
+        <origin xyz="${L/2 + 0.02} 0 ${shell_z - shell_h/4}" rpy="0 0 0"/>
+        <geometry><box size="0.06 0.16 0.06"/></geometry>
+        <material name="chassis"/>
+      </visual>
+      <visual>
+        <origin xyz="${L/2 + 0.05} 0 ${shell_z - shell_h/4}" rpy="0 ${pi/2} 0"/>
+        <geometry><cylinder radius="0.012" length="0.01"/></geometry>
+        <material name="accent"/>
+      </visual>
+      <!-- rear e-stop -->
+      <visual>
+        <origin xyz="${-L/2 + 0.06} ${-body_w/2 + 0.06} ${shell_z + shell_h/2 + 0.02}" rpy="0 0 0"/>
+        <geometry><cylinder radius="0.02" length="0.04"/></geometry>
+        <material name="estop"/>
+      </visual>
+      <!-- heading marker -->
+      <visual>
+        <origin xyz="${L/2 - 0.03} 0 ${shell_z + shell_h/2 + 0.012}" rpy="0 0 0"/>
+        <geometry><box size="0.04 0.12 0.008"/></geometry>
+        <material name="accent"/>
+      </visual>
+    </xacro:unless>
+  </link>
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_link"/><child link="base_footprint"/>
+    <origin xyz="0 0 ${-wr}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ================================================================ wheel module -->
+  <!-- chassis side -> swing arm (fixed) -> steer knuckle (continuous, z) -> wheel (continuous, y) -->
+  <xacro:macro name="wheel_module" params="name x side">
+    <!-- swing arm from chassis side to the knuckle -->
+    <link name="${name}_arm">
+      <visual>
+        <origin xyz="0 ${side * arm_len/2} 0" rpy="0 0 0"/>
+        <geometry><box size="${arm_sec} ${arm_len} ${arm_sec}"/></geometry>
+        <material name="chassis"/>
+      </visual>
+      <!-- arm root bracket on the chassis -->
+      <visual>
+        <origin xyz="0 ${side * 0.01} 0" rpy="0 0 0"/>
+        <geometry><box size="${arm_sec + 0.03} 0.03 ${arm_sec + 0.03}"/></geometry>
+        <material name="chassis"/>
+      </visual>
+    </link>
+    <joint name="${name}_arm_joint" type="fixed">
+      <parent link="base_link"/><child link="${name}_arm"/>
+      <origin xyz="${x} ${side * chassis_w/2} 0" rpy="0 0 0"/>
+    </joint>
+
+    <!-- steer knuckle: vertical housing at the arm tip -->
+    <link name="${name}_steer">
+      <visual>
+        <origin xyz="0 0 -0.01" rpy="0 0 0"/>
+        <geometry><cylinder radius="${knuckle_r}" length="0.12"/></geometry>
+        <material name="chassis"/>
+      </visual>
+      <!-- stub axle toward the wheel -->
+      <visual>
+        <origin xyz="0 ${side * (knuckle_r + arm_gap)/2} 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="0.02" length="${knuckle_r + arm_gap}"/></geometry>
+        <material name="hub"/>
+      </visual>
+    </link>
+    <joint name="${name}_steer_joint" type="continuous">
+      <parent link="${name}_arm"/><child link="${name}_steer"/>
+      <origin xyz="0 ${side * arm_len} 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+    </joint>
+
+    <!-- wheel: tyre + inner rim + outer hub cover -->
+    <link name="${name}_wheel">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${wr}" length="${ww}"/></geometry>
+        <material name="tyre"/>
+      </visual>
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${wr*0.80}" length="${ww*1.04}"/></geometry>
+        <material name="hub"/>
+      </visual>
+      <visual>
+        <origin xyz="0 ${side * ww/2} 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${wr*0.74}" length="0.012"/></geometry>
+        <material name="shell"/>
+      </visual>
+    </link>
+    <joint name="${name}_wheel_joint" type="continuous">
+      <parent link="${name}_steer"/><child link="${name}_wheel"/>
+      <origin xyz="0 ${side * (knuckle_r + arm_gap + ww/2)} 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:wheel_module name="fl" x="${ wb/2}" side="1"/>
+  <xacro:wheel_module name="fr" x="${ wb/2}" side="-1"/>
+  <xacro:wheel_module name="rl" x="${-wb/2}" side="1"/>
+  <xacro:wheel_module name="rr" x="${-wb/2}" side="-1"/>
+
+  <!-- ================================================================ sensors -->
+  <link name="laser">
+    <visual><geometry><cylinder radius="0.04" length="0.05"/></geometry><material name="tyre"/></visual>
+  </link>
+  <joint name="laser_joint" type="fixed">
+    <parent link="base_link"/><child link="laser"/>
+    <origin xyz="$(arg laser_x) 0 ${$(arg laser_z) - wr}" rpy="0 0 0"/>   <!-- laser_z measured from ground -->
+  </joint>
+</robot>

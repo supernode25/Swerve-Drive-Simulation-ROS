@@ -1,0 +1,195 @@
+# Regression scenarios for the ecoproBM_matterport(_clean) map (map frame, metres, yaw in degrees).
+# Footprint assumed: midpro 0.90 x 0.50 m (x +0.42/-0.48, y +-0.25). The gap scenario uses width + 10 cm = 0.60 m.
+# Obstacles are injected into the simulated laser only (/sim/obstacle_cmd), never into the map.
+# Coordinates were checked against the map clearance (top aisle around x 30..50 is ~4.3 m wide, walls y -2.35 .. 1.95).
+map: ecoproBM_matterport_clean.yaml
+repeats: 3
+settle_s: 2.0            # wait after teleport + obstacle injection before sending the goal
+stuck_window_s: 10.0     # moved less than stuck_dist in this window while the goal is active = stuck
+stuck_dist: 0.05
+footprint: {front: 0.42, rear: -0.48, half_width: 0.25}   # for the clearance metric (match the costmap footprint)
+laser: [0.25, 0.0, 0.0]                                     # laser pose in base_link (sim_params laser_offset)
+scenarios:
+  - name: straight_20m
+    group: base
+    desc: 상단 통로 20 m 직진 (램프·순항·제동)
+    start: [50.0, 0.5, 180]
+    goal:  [30.0, 0.5, 180]
+    timeout_s: 90
+  - name: corner
+    group: base
+    desc: 상단 통로에서 아래 구역으로 꺾어 들어가기
+    start: [25.0, -1.0, 180]
+    goal:  [18.0, -12.0, -90]
+    timeout_s: 120
+  - name: side_align
+    group: base
+    desc: 3 m 진행 후 목표 yaw 90° (열린 공간 → 도착 후 회전)
+    start: [40.0, 0.5, 180]
+    goal:  [37.0, 0.5, 90]
+    timeout_s: 60
+  - name: static_obstacle
+    group: base
+    desc: 경로 한가운데 0.6 m 박스 회피
+    start: [50.0, 0.3, 180]
+    goal:  [38.0, 0.3, 180]
+    obstacles:
+      - {type: box, x: 44.0, y: 0.3, w: 0.6, h: 0.6}
+    timeout_s: 90
+  - name: aisle_0p9
+    group: base
+    desc: 폭 0.9 m 통로 6 m 지속 통과 (NEAR 안 주행, 대각선 크랩 여부)
+    start: [50.0, 0.3, 180]
+    goal:  [39.0, 0.3, 180]
+    obstacles:
+      - {type: box, x: 45.0, y: 1.35,  w: 6.0, h: 1.20}
+      - {type: box, x: 45.0, y: -1.275, w: 6.0, h: 2.25}
+    timeout_s: 120
+  - name: gap_w10
+    group: base
+    desc: 차체 폭 + 10 cm (0.60 m) 틈 통과 — circle 모델은 통과 불가가 정상
+    start: [50.0, 0.3, 180]
+    goal:  [39.0, 0.3, 180]
+    obstacles:
+      - {type: box, x: 45.0, y: -1.225, w: 0.4, h: 2.45}
+      - {type: box, x: 45.0, y: 1.35,   w: 0.4, h: 1.50}
+    gap: {x: 45.0, y: 0.3, half_width: 0.30}
+    timeout_s: 120
+  - name: dynamic_cross
+    group: base
+    desc: 0.8 m/s로 경로를 가로지르는 보행자
+    start: [50.0, 0.3, 180]
+    goal:  [37.0, 0.3, 180]
+    obstacles:
+      - {type: circle, x: 43.0, y: -1.8, r: 0.25, motion: {kind: pingpong, points: [[43.0, -1.8], [43.0, 1.6]], speed: 0.8}}
+    timeout_s: 90
+  - name: bay_exit
+    group: base
+    desc: ㄷ자 베이 안(좌우 25 cm)에서 출발해 뒤쪽 목표로 — 회전 없이 빠져나오는지
+    start: [44.55, 0.3, 180]
+    goal:  [50.0, 0.3, 0]
+    obstacles:
+      - {type: box, x: 43.9,  y: 0.3,  w: 0.2, h: 1.2}
+      - {type: box, x: 44.55, y: 0.9,  w: 1.3, h: 0.2}
+      - {type: box, x: 44.55, y: -0.3, w: 1.3, h: 0.2}
+    timeout_s: 60
+
+  # ---------------------------------------------------------------- concern 1: wedged while avoiding
+  - name: w_squeeze_inject
+    group: wedge
+    desc: 1.6 m 통로 진입 직전(4 s) 장애물 등장 → 벽 쪽 0.75 m 틈으로 비켜 지나가며 끼지 않는지
+    start: [51.0, 0.3, 180]
+    goal:  [39.0, 0.3, 180]
+    obstacles:
+      - {type: box, x: 45.0, y: 1.6,    w: 8.0, h: 1.0}
+      - {type: box, x: 45.0, y: -1.475, w: 8.0, h: 1.95}
+      - {type: circle, x: 44.5, y: 0.55, r: 0.3, at_s: 4.0}
+    timeout_s: 120
+  - name: w_corner_avoid
+    group: wedge
+    desc: 랙 모서리가 튀어나온 곳 옆에 장애물 등장(3 s) → 모서리 쪽으로 비켜 갔다가 복귀할 때 끼지 않는지
+    start: [51.0, 0.3, 180]
+    goal:  [38.0, 0.3, 180]
+    obstacles:
+      - {type: box, x: 44.0, y: -1.625, w: 0.6, h: 1.45}
+      - {type: circle, x: 44.0, y: 0.6, r: 0.35, at_s: 3.0}
+    timeout_s: 120
+  - name: w_insert_close
+    group: wedge
+    desc: 순항 중 1.5 m 앞에 장애물 등장(5 s) → 급회피가 끼임 없이 부드러운지
+    start: [51.0, 0.3, 180]
+    goal:  [40.0, 0.3, 180]
+    obstacles:
+      - {type: circle, x: 47.0, y: 0.3, r: 0.3, at_s: 5.0}
+    timeout_s: 90
+
+  # ---------------------------------------------------------------- concern 2: detours although passable
+  # ref_len = straight distance; max_detour_ratio flags runs that took the long way.
+  - name: d_gap_choice_w20
+    group: detour
+    desc: 직선 위 0.70 m 틈(폭+20) vs 아래쪽 1.4 m 넓은 개구부(약 +6 %) — 정책 선택, 결과로 확인
+    start: [50.0, 0.3, 180]
+    goal:  [39.0, 0.3, 180]
+    obstacles:
+      - {type: box, x: 45.0, y: -0.5, w: 0.3, h: 0.9}
+      - {type: box, x: 45.0, y: 1.35, w: 0.3, h: 1.4}
+    gap: {x: 45.0, y: 0.3, half_width: 0.35}
+    max_detour_ratio: 1.03
+    timeout_s: 90
+  - name: d_gap_choice_w40
+    group: detour
+    desc: 직선 위 0.90 m 틈(폭+40) vs 넓은 개구부 — 이 폭이면 틈으로 가야 함
+    start: [50.0, 0.3, 180]
+    goal:  [39.0, 0.3, 180]
+    obstacles:
+      - {type: box, x: 45.0, y: -0.55, w: 0.3, h: 0.8}
+      - {type: box, x: 45.0, y: 1.4,   w: 0.3, h: 1.3}
+    gap: {x: 45.0, y: 0.3, half_width: 0.45}
+    max_detour_ratio: 1.03
+    timeout_s: 90
+  - name: d_gap_full_w20
+    group: detour
+    desc: 통로 전체를 막은 벽의 0.70 m 틈만 존재 — 통과 못 하면 먼 우회/타임아웃
+    start: [50.0, 0.3, 180]
+    goal:  [39.0, 0.3, 180]
+    obstacles:
+      - {type: box, x: 45.0, y: -1.25, w: 0.3, h: 2.4}
+      - {type: box, x: 45.0, y: 1.35,  w: 0.3, h: 1.4}
+    gap: {x: 45.0, y: 0.3, half_width: 0.35}
+    max_detour_ratio: 1.15
+    timeout_s: 120
+  - name: d_gap_offset_w40
+    group: detour
+    desc: 통로 전체를 막은 벽의 0.90 m 틈이 직선에서 0.9 m 옆에 있음 — 측면 이동으로 찾아 들어가는지
+    start: [50.0, 0.3, 180]
+    goal:  [39.0, 0.3, 180]
+    obstacles:
+      - {type: box, x: 45.0, y: -0.85, w: 0.3, h: 3.2}
+      - {type: box, x: 45.0, y: 1.85,  w: 0.3, h: 0.4}
+    gap: {x: 45.0, y: 1.2, half_width: 0.45}
+    max_detour_ratio: 1.15
+    timeout_s: 120
+  - name: d_obstacle_vanish
+    group: detour
+    desc: 경로 한가운데 장애물(1.0 x 1.6 m)로 우회 시작 → 6 s에 장애물 제거 → 최단 경로로 복귀하는지
+    start: [51.0, 0.3, 180]
+    goal:  [38.0, 0.3, 180]
+    obstacles:
+      - {id: vanish_box, type: box, x: 44.5, y: 0.3, w: 1.0, h: 1.6, remove_at_s: 6.0}
+    max_detour_ratio: 1.04
+    timeout_s: 90
+  - name: w_pallet_drop
+    group: wedge
+    desc: 순항 중(3 s) 4.6 m 앞에 팔레트(1.2 x 1.2 m) 등장 → 다가가 멈추지 않고 멀리서 바로 우회하는지
+    start: [51.0, 0.3, 180]
+    goal:  [38.0, 0.3, 180]
+    obstacles:
+      - {type: box, x: 45.0, y: 0.3, w: 1.2, h: 1.2, at_s: 3.0}
+    max_detour_ratio: 1.15
+    timeout_s: 90
+  - name: p_wall_side_park
+    group: wedge
+    desc: 외벽 옆 측면 주차 — 목표점에서 90도 회전하면 벽에 닿는 배치. 미리 정렬 후 옆으로 밀고 들어가야 통과
+    start: [50.0, -3.0, 90]
+    goal:  [50.0, 0.5, 0]
+    obstacles:
+      - {type: box, x: 50.0, y: 1.35, w: 6.0, h: 1.0, yaw: 0.0}
+    timeout_s: 90
+  - name: p_u_pocket_park
+    group: wedge
+    desc: ㄷ자(남쪽 개방) 안쪽 주차 — 안에서는 회전 불가. 바깥에서 목표 방향으로 돈 뒤 옆으로 밀고 들어가야 통과
+    start: [50.0, -3.0, 90]
+    goal:  [50.0, 0.5, 0]
+    obstacles:
+      - {type: box, x: 50.0, y: 1.35, w: 6.0, h: 1.0, yaw: 0.0}
+      - {type: box, x: 49.30, y: 0.45, w: 0.2, h: 0.8, yaw: 0.0}
+      - {type: box, x: 50.70, y: 0.45, w: 0.2, h: 0.8, yaw: 0.0}
+    timeout_s: 120
+  - name: p_wall_facing_slot
+    group: wedge
+    desc: 벽을 정면으로 보는 자리(벽 5 cm 앞) — 경로가 벽을 따라오면 어디서도 회전 불가, 정리기가 목표 뒤 열린 곳으로 준비 지점을 만들어야 통과
+    start: [46.0, 0.55, 0]
+    goal:  [50.0, 0.38, 90]
+    obstacles:
+      - {type: box, x: 50.0, y: 1.35, w: 8.0, h: 1.0, yaw: 0.0}
+    timeout_s: 120

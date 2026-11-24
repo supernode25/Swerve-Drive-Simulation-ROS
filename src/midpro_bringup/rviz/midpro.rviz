@@ -1,0 +1,171 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+  - Class: nav2_rviz_plugins/Navigation 2
+    Name: Navigation 2
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Cell Size: 1
+      Color: 200; 200; 200
+      Plane Cell Count: 40
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Show Names: false
+      Marker Scale: 0.5
+      Value: false
+    - Class: rviz_default_plugins/RobotModel
+      Name: RobotModel
+      Description Topic: {Value: /robot_description, Durability Policy: Transient Local}
+      Value: true
+    - Class: rviz_default_plugins/Map
+      Name: Map
+      Topic: {Value: /map, Durability Policy: Transient Local}
+      Color Scheme: map
+      Value: true
+    - Class: rviz_default_plugins/Map
+      Name: Local Costmap
+      Topic: {Value: /local_costmap/costmap, Durability Policy: Transient Local}
+      Color Scheme: costmap
+      Alpha: 0.5
+      Value: true
+    - Class: rviz_default_plugins/Map
+      Name: Global Costmap (heavy, off)
+      Topic: {Value: /global_costmap/costmap, Durability Policy: Transient Local}
+      Update Topic: {Value: /global_costmap/costmap_updates}
+      Color Scheme: costmap
+      Alpha: 0.5
+      Value: false
+    - Class: rviz_default_plugins/Map
+      Name: Detour Costmap
+      Topic: {Value: /detour/global_costmap/costmap, Durability Policy: Transient Local}
+      Color Scheme: costmap
+      Alpha: 0.3
+      Value: false
+    - Class: rviz_default_plugins/Polygon
+      Name: Footprint
+      Topic: {Value: /local_costmap/published_footprint}
+      Color: 25; 80; 140
+      Value: true
+    - Class: rviz_default_plugins/LaserScan
+      Name: LaserScan
+      Topic: {Value: /scan, Reliability Policy: Best Effort}
+      Color: 220; 60; 40
+      Size (m): 0.04
+      Style: Points
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Pose Style: None              # arrows on long plans freeze RViz (thousands of meshes per replan)
+      Name: Global Plan (Smac 2D)
+      Topic: {Value: /plan}
+      Color: 242; 183; 5
+      Line Style: Billboards
+      Line Width: 0.05
+      Alpha: 1
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: Local Plan (FSM)
+      Topic: {Value: /midpro/local_plan}
+      Color: 166; 226; 46
+      Line Style: Billboards
+      Line Width: 0.04
+      Alpha: 1
+      Pose Style: None
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: Local Plan poses (debug, heavy)
+      Topic: {Value: /midpro/local_plan}
+      Color: 166; 226; 46
+      Line Style: Billboards
+      Line Width: 0.02
+      Alpha: 1
+      Pose Style: Arrows
+      Shaft Length: 0.08
+      Head Length: 0.04
+      Value: false
+    - Class: rviz_default_plugins/Path
+      Pose Style: None              # arrows on long plans freeze RViz (thousands of meshes per replan)
+      Name: Detour Path (Hybrid-A*)
+      Topic: {Value: /midpro/detour_path}
+      Color: 255; 138; 61
+      Line Style: Billboards
+      Line Width: 0.03
+      Alpha: 1
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Sim Obstacles
+      Topic: {Value: /sim/obstacles}
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: Conditioned Plan (midpro)
+      Topic: {Value: /midpro/conditioned_plan}
+      Color: 120; 180; 230
+      Line Style: Billboards
+      Line Width: 0.03
+      Alpha: 1
+      Pose Style: None
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Obstacle Guard
+      Topic: {Value: /obstacle_guard/markers}
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Goal Footprint
+      Topic: {Value: /midpro/goal_footprint, Durability Policy: Transient Local}
+      Value: true
+    - Class: rviz_default_plugins/Pose
+      Name: Ground Truth
+      Topic: {Value: /sim/ground_truth}
+      Color: 60; 160; 60
+      Shape: Arrow
+      Value: true
+    - Class: rviz_default_plugins/PoseArray
+      Name: AMCL Particles
+      Topic: {Value: /particlecloud}
+      Value: false
+  Global Options:
+    Fixed Frame: map
+    Frame Rate: 20
+    Background Color: 255; 255; 255
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic: {Value: /initialpose}
+    - Class: nav2_rviz_plugins/GoalTool
+    - Class: rviz_default_plugins/PublishPoint
+      Topic: {Value: /clicked_point}
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: TopDown
+      Scale: 40
+      X: 12
+      Y: 4
+    Saved:
+      - Class: rviz_default_plugins/TopDownOrtho
+        Name: TopDown
+        Scale: 40
+        X: 12
+        Y: 4
+      - Class: rviz_default_plugins/Orbit
+        Name: Orbit
+        Distance: 22
+        Pitch: 0.85
+        Yaw: 3.9
+        Target Frame: <Fixed Frame>
+        Focal Point: {X: 12, Y: 4, Z: 0}
+      - Class: rviz_default_plugins/ThirdPersonFollower
+        Name: FollowRobot
+        Distance: 6
+        Pitch: 0.6
+        Yaw: 3.14
+        Target Frame: base_link
+Window Geometry:
+  Height: 900
+  Width: 1400

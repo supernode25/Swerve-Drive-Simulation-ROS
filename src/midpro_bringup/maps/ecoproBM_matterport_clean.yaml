@@ -1,0 +1,7 @@
+image: ecoproBM_matterport_clean.pgm
+resolution: 0.050000
+origin: [-28.650000, -39.050002, 0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+

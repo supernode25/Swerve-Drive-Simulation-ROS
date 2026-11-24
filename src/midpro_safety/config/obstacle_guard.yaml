@@ -1,0 +1,27 @@
+# midpro_safety / obstacle_guard — direction-aware reactive safety layer
+#   controller -> /cmd_vel_nav -> obstacle_guard -> /cmd_vel_cm -> velocity_smoother -> /cmd_vel
+# A laser point only limits motions that bring the body towards it (ROS1 obstacle_detector concept).
+obstacle_guard:
+  ros__parameters:
+    use_sim_time: true
+    footprint: "[[0.42, 0.25], [0.42, -0.25], [-0.48, -0.25], [-0.48, 0.25]]"   # base_link; = costmap footprint
+    base_frame: base_link
+    laser_pose: [0.25, 0.0, 0.0]     # fallback if TF base_link <- laser is missing
+    stop_front: 0.10                 # m, stop this far before an obstacle ahead (ROS1 out_rec front 0.15)
+    stop_rear: 0.10
+    stop_side: 0.03                  # m, sideways motion stops this far from a side obstacle (= footprint padding; a slot 5 cm from a wall stays reachable)
+    rot_margin: 0.03                 # m around the footprint for the rotation sweep
+    brake_acc: 0.5                   # m/s^2 used for v = sqrt(2 a d): always able to stop in time
+    brake_alpha: 1.0                 # rad/s^2, same for rotation
+    latency: 0.15                    # s, command-to-motion delay subtracted from the distance
+    slow_dist: 0.8                   # m beyond the stop margin where the approach cap starts (ROS1 decel zone)
+    slow_speed: 0.3                  # m/s at the stop margin end of that cap
+    rise_rate: 0.6                   # m/s per s: limits recover gradually (ROS1 counter_to_false)
+    v_max: 1.0
+    w_max: 1.0
+    self_filter: true                # ROS1 laser_filter: drop returns from the robot body
+    self_filter_shrink: 0.03         # keep the outer 3 cm of the footprint (real contact stays visible)
+    max_range: 6.0
+    scan_timeout: 0.5                # s without scan -> zero command
+    alarm_sec: 60.0                  # ROS1 obstacle_stop alarm
+    marker_rate: 5.0

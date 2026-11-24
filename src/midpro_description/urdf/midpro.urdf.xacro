@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<!-- midpro swerve base: visual box + laser frame. No Gazebo tags (RViz/sim only). -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="midpro">
+  <!-- footprint from loas_costmap: x +0.42 / -0.48, y +-0.25 -->
+  <xacro:property name="len_front" value="0.42"/>
+  <xacro:property name="len_rear"  value="0.48"/>
+  <xacro:property name="width"     value="0.50"/>
+  <xacro:property name="height"    value="0.30"/>
+  <xacro:property name="laser_x"   value="0.25"/>
+  <xacro:property name="laser_z"   value="0.25"/>
+
+  <link name="base_footprint"/>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="${(len_front - len_rear)/2} 0 ${height/2}" rpy="0 0 0"/>
+      <geometry><box size="${len_front + len_rear} ${width} ${height}"/></geometry>
+      <material name="grey"><color rgba="0.55 0.58 0.62 1.0"/></material>
+    </visual>
+    <!-- heading marker -->
+    <visual>
+      <origin xyz="${len_front - 0.03} 0 ${height + 0.02}" rpy="0 0 0"/>
+      <geometry><box size="0.06 0.12 0.04"/></geometry>
+      <material name="accent"><color rgba="0.12 0.31 0.55 1.0"/></material>
+    </visual>
+  </link>
+  <!-- base_footprint is a CHILD of base_link: the simulator/odometry owns odom->base_link -->
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="base_footprint"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- four steerable wheels (visual only, fixed) -->
+  <xacro:macro name="wheel" params="name x y">
+    <link name="${name}">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="0.08" length="0.05"/></geometry>
+        <material name="dark"><color rgba="0.2 0.2 0.2 1.0"/></material>
+      </visual>
+    </link>
+    <joint name="${name}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="${name}"/>
+      <origin xyz="${x} ${y} 0.0" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+  <xacro:wheel name="wheel_fl" x="0.30"  y="0.22"/>
+  <xacro:wheel name="wheel_fr" x="0.30"  y="-0.22"/>
+  <xacro:wheel name="wheel_rl" x="-0.36" y="0.22"/>
+  <xacro:wheel name="wheel_rr" x="-0.36" y="-0.22"/>
+
+  <link name="laser">
+    <visual>
+      <geometry><cylinder radius="0.04" length="0.05"/></geometry>
+      <material name="black"><color rgba="0.1 0.1 0.1 1.0"/></material>
+    </visual>
+  </link>
+  <joint name="laser_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="laser"/>
+    <origin xyz="${laser_x} 0 ${laser_z}" rpy="0 0 0"/>
+  </joint>
+</robot>

@@ -1,0 +1,12 @@
+<class_libraries>
+  <library path="midpro_nav2_controller">
+    <class type="midpro_nav2_controller::MidproFsmController" base_class_type="nav2_core::Controller">
+      <description>midpro 1.4 FSM path controller (holonomic + ackermann) with straight/side/front/line/detour local path builder</description>
+    </class>
+  </library>
+  <library path="midpro_straight_planner">
+    <class type="midpro_nav2_controller::MidproStraightPlanner" base_class_type="nav2_core::GlobalPlanner">
+      <description>Straight-line fallback global planner (ROS1 midpro behaviour: always hand a target to the FSM)</description>
+    </class>
+  </library>
+</class_libraries>

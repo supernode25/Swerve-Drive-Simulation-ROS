@@ -1,0 +1,30 @@
+fake_robot:
+  ros__parameters:
+    rate: 50.0
+    real_time_factor: 1.0
+    publish_map_odom_tf: false      # set true only when running without AMCL/SLAM
+    # swerve stand-in: first-order lag per axis + accel limits (replace with CAN-log identified values)
+    tau_vx: 0.15
+    tau_vy: 0.40
+    tau_wz: 0.25
+    acc_vx: 1.5
+    acc_vy: 0.8
+    acc_wz: 2.0
+    cmd_timeout: 0.5
+    scan_rate: 10.0
+    scan_range_max: 12.0
+    scan_range_min: 0.05
+    scan_samples: 360
+    scan_fov_deg: 360.0
+    scan_noise_std: 0.01
+    laser_offset: [0.25, 0.0, 0.0]     # keep equal to URDF laser_x
+    odom_noise_std: [0.0, 0.0, 0.0]  # e.g. [0.01, 0.01, 0.005] to exercise AMCL
+    clicked_obstacle_radius: 0.15
+
+detour_bridge:
+  ros__parameters:
+    action_name: /detour/compute_path_to_pose
+    planner_id: DetourPlanner
+    replan_rate: 1.0                # Hybrid-A* local detour: 1 Hz (dynamic obstacles; the controller keeps a path for 3 s)
+    request_timeout: 1.5
+    use_start: false
